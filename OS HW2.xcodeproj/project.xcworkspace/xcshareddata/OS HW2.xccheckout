@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>IDESourceControlProjectFavoriteDictionaryKey</key>
+	<false/>
+	<key>IDESourceControlProjectIdentifier</key>
+	<string>E361A8FA-122C-4D79-92CD-C2529FD722B0</string>
+	<key>IDESourceControlProjectName</key>
+	<string>OS HW2</string>
+	<key>IDESourceControlProjectOriginsDictionary</key>
+	<dict>
+		<key>2D7C8735-3427-48FC-ADC9-7D299DB040C4</key>
+		<string>https://github.com/cooljj20/OS-HW2.git</string>
+	</dict>
+	<key>IDESourceControlProjectPath</key>
+	<string>OS HW2.xcodeproj/project.xcworkspace</string>
+	<key>IDESourceControlProjectRelativeInstallPathDictionary</key>
+	<dict>
+		<key>2D7C8735-3427-48FC-ADC9-7D299DB040C4</key>
+		<string>../..</string>
+	</dict>
+	<key>IDESourceControlProjectURL</key>
+	<string>https://github.com/cooljj20/OS-HW2.git</string>
+	<key>IDESourceControlProjectVersion</key>
+	<integer>110</integer>
+	<key>IDESourceControlProjectWCCIdentifier</key>
+	<string>2D7C8735-3427-48FC-ADC9-7D299DB040C4</string>
+	<key>IDESourceControlProjectWCConfigurations</key>
+	<array>
+		<dict>
+			<key>IDESourceControlRepositoryExtensionIdentifierKey</key>
+			<string>public.vcs.git</string>
+			<key>IDESourceControlWCCIdentifierKey</key>
+			<string>2D7C8735-3427-48FC-ADC9-7D299DB040C4</string>
+			<key>IDESourceControlWCCName</key>
+			<string>OS-HW2</string>
+		</dict>
+	</array>
+</dict>
+</plist>

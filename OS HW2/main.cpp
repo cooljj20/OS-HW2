@@ -17,11 +17,42 @@
 #include <vector>
 #include <string>
 #include <math.h>
+#include <sys/types.h>
+#include <sys/ipc.h>
+#include <sys/sem.h>
 
 using namespace std;
 
-void pageFault(){}
-void diskDriver(){}
+
+/* Gets the max number that can be made from bit size ps */
+int getMaxBitSize(int ps)
+{
+    int result = 0;
+    for(int i = 0; i<ps; i++)
+    {
+        result += pow(2, i);// 2 to the i
+    }
+    return result;
+}
+
+
+/* Get offset value */
+int getOffset(int address, int maxNumberOfOffset)
+{
+    return address & maxNumberOfOffset;
+}
+
+/* Get Page value */
+int getPage(int address,int ps , int maxNumberOfPages)
+{
+    return (address >> ps) & maxNumberOfPages;
+}
+
+int getSegment(int address, int ps, int sl)
+{
+    return address >> (ps+sl);
+}
+
 
 int main(int argc, const char * argv[])
 {
@@ -100,7 +131,6 @@ int main(int argc, const char * argv[])
             processAddr.push_back(std::make_pair(process, address));
         }
         
-        tp = log2(tp);
         cout<<tp<<endl;
         sl = log2(sl);
         cout<<sl<<endl;
@@ -115,9 +145,15 @@ int main(int argc, const char * argv[])
             cout << iter->first <<" "<< iter->second << endl;
         }
         
+        int maxNumberofOffset = getMaxBitSize(ps);
+        int maxNumberOfPages = getMaxBitSize(sl);
         for (vector<pair<int, int>>::iterator iter = processAddr.begin(); iter!=processAddr.end(); iter++)
         {
-            cout << iter->first <<" "<< iter->second << endl;
+            cout<<"-----"<<iter->first<<"-----"<<endl;
+            cout<<"Offset="<<getOffset(iter->second, maxNumberofOffset)<<endl;
+            cout<<"Page="<<getPage(iter->second, ps, maxNumberOfPages)<<endl;
+            cout<<"Segment="<<getSegment(iter->second, ps, sl)<<endl;
+            
         }
     }
     else cout << "Unable to open file\n";
