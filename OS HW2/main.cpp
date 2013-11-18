@@ -35,6 +35,18 @@ int getMaxBitSize(int ps)
     return result;
 }
 
+int getAddressIndex(vector<pair<int, int>>::iterator iter, int addressSpace[], int k, int r)
+{
+    for(int i = 0; i<k; i++)
+    {
+        if(iter->first == addressSpace[i])
+        {
+            //cout<<"Address space is "<<i<<endl;
+            //cout<<"searching starts at frame "<<i*r<<endl;
+            return i;
+        }
+    }
+}
 
 /* Get offset value */
 int getOffset(int address, int maxNumberOfOffset)
@@ -70,7 +82,7 @@ int main(int argc, const char * argv[])
     int min; //
     int max; //
     int k;   // total number of processes
-    int vmmSize; // size of virtual memory
+
     
     vector<pair<int, int>> processID;
     vector<pair<int, int>> processAddr;
@@ -144,7 +156,7 @@ int main(int argc, const char * argv[])
         cout<<tp<<endl;
         int logsl = ceil(log2(sl));
         cout<<sl<<endl;
-        ps = log2(ps);
+        ps = ceil(log2(ps));
         cout<<ps<<endl;
         cout<<r<<endl;
         cout<<min<<endl;
@@ -187,7 +199,9 @@ int main(int argc, const char * argv[])
     
     //create main memeory size tp
     int mainMemory[tp];
-    vmmSize = k*tp;
+    
+    // create virtual memory which is size of main memory * k number of processes
+    int vmm[k*tp];
     
     for(int i = 0; i<tp; i++)
     {
@@ -205,7 +219,7 @@ int main(int argc, const char * argv[])
         count++;
     }
     
-    //find where in the ram to search for each process.
+    //process request
     for (vector<pair<int, int>>::iterator iter = processAddr.begin(); iter!=processAddr.end(); iter++)
     {
         if(iter->second==-1)
@@ -213,27 +227,30 @@ int main(int argc, const char * argv[])
             cout<<iter->first<<" "<<iter->second<<endl;
             continue;
         }
-        for(int i = 0; i<k; i++)
+        
+        int index = getAddressIndex(iter, addressSpace, k, r);
+        
+        vmm[index*tp+ (iter->second >> ps)] = index*tp+ (iter->second >> ps);
+        cout<<"virtual main memory="<<vmm[(index* tp) + (iter->second >> ps)]<<endl;
+        
+        //sift through main memory
+        for(int i = index*r; i<index*r+r; i++)
         {
-            if(iter->first == addressSpace[i])
+            cout<<"mainMemory["<<i<<"]"<<"="<<vmm[index*tp+ (iter->second >> ps)]<<endl;
+            if (mainMemory[i]==vmm[getAddressIndex(iter, addressSpace, k, r)])
             {
-                cout<<"searching starts at frame "<<i*r<<endl;
+                cout<<mainMemory[i]<<"="<<vmm[getAddressIndex(iter, addressSpace, k, r)];
+            }
+            else
+            {
+                //faultHandler();
             }
         }
-    }
-    
-    //sift through main memory
-    for(int i= 0; i<tp; i++)
-    {
-        if(mainMemory[i]<0)
-        {
-            faultHandler();
-        }
+        
     }
     
     
-    
-    
+
     return 0;
 }
 
