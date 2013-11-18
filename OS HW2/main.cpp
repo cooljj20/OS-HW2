@@ -112,6 +112,7 @@ int main(int argc, const char * argv[])
         istringstream iss;
         stringstream ss;
         
+        //Store process and Max number of disk pages
         for(int i = 0; i<k; i++)
         {
             int process;
@@ -124,7 +125,7 @@ int main(int argc, const char * argv[])
         }
         
         
-        //get process and address
+        //Store process and address
         while(!myfile.eof())
         {
             int process;
@@ -141,7 +142,7 @@ int main(int argc, const char * argv[])
         }
         
         cout<<tp<<endl;
-        sl = log2(sl);
+        int logsl = ceil(log2(sl));
         cout<<sl<<endl;
         ps = log2(ps);
         cout<<ps<<endl;
@@ -150,9 +151,18 @@ int main(int argc, const char * argv[])
         cout<<max<<endl;
         cout<<k<<endl;
         
-        vmmSize = k*tp;
-        cout<<"vmmSize="<<vmmSize<<endl;
-        
+        //create DTP a=ProcessID, p=Page number
+        int DTP[k][sl];
+        int counter = 0;
+        for(int i = 0; i<k; i++)
+        {
+            for(int j = 0; j<sl; j++)
+            {
+                DTP[i][j]=counter;
+                cout<<"DTP["<<i<<"]["<<j<<"]="<<counter<<endl;
+                counter++;
+            }
+        }
         
         
         for (vector<pair<int, int>>::iterator iter = processID.begin(); iter!=processID.end(); iter++)
@@ -161,13 +171,13 @@ int main(int argc, const char * argv[])
         }
         
         int maxNumberofOffset = getMaxBitSize(ps);
-        int maxNumberOfPages = getMaxBitSize(sl);
+        int maxNumberOfPages = getMaxBitSize(logsl);
         for (vector<pair<int, int>>::iterator iter = processAddr.begin(); iter!=processAddr.end(); iter++)
         {
             cout<<"-----"<<iter->first<<"-----"<<endl;
             cout<<"Offset="<<getOffset(iter->second, maxNumberofOffset)<<endl;
             cout<<"Page="<<getPage(iter->second, ps, maxNumberOfPages)<<endl;
-            cout<<"Segment="<<getSegment(iter->second, ps, sl)<<endl;
+            cout<<"Segment="<<getSegment(iter->second, ps, logsl)<<endl;
             
         }
     }
@@ -184,7 +194,7 @@ int main(int argc, const char * argv[])
         cout<<"mainMemory["<<i<<"]="<<mainMemory[i]<<endl;
     }
     
-    //create address space pointers
+    //create address space pointers for each process
     int addressSpace[k];
     int count = 0;
     
@@ -195,20 +205,22 @@ int main(int argc, const char * argv[])
         count++;
     }
     
-    //get address space from hardware.
+    //find where in the ram to search for each process.
     for (vector<pair<int, int>>::iterator iter = processAddr.begin(); iter!=processAddr.end(); iter++)
     {
         for(int i = 0; i<k; i++)
         {
             if(iter->first == addressSpace[i])
             {
-                cout<<i<<endl;
+                cout<<"searching starts at frame "<<i*r<<endl;
             }
         }
     }
     
     for(int i= 0; i<tp; i++)
     {
+        //
+        //
         if(mainMemory[i]<0)
         {
             cout<<i<<endl;
