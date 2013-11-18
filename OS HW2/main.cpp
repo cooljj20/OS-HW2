@@ -187,11 +187,11 @@ int main(int argc, const char * argv[])
     
     //create main memeory size tp
     int mainMemory[tp];
+    vmmSize = k*tp;
     
     for(int i = 0; i<tp; i++)
     {
         mainMemory[i] = -1;
-        cout<<"mainMemory["<<i<<"]="<<mainMemory[i]<<endl;
     }
     
     //create address space pointers for each process
@@ -208,6 +208,11 @@ int main(int argc, const char * argv[])
     //find where in the ram to search for each process.
     for (vector<pair<int, int>>::iterator iter = processAddr.begin(); iter!=processAddr.end(); iter++)
     {
+        if(iter->second==-1)
+        {
+            cout<<iter->first<<" "<<iter->second<<endl;
+            continue;
+        }
         for(int i = 0; i<k; i++)
         {
             if(iter->first == addressSpace[i])
@@ -217,13 +222,11 @@ int main(int argc, const char * argv[])
         }
     }
     
+    //sift through main memory
     for(int i= 0; i<tp; i++)
     {
-        //
-        //
         if(mainMemory[i]<0)
         {
-            cout<<i<<endl;
             faultHandler();
         }
     }
