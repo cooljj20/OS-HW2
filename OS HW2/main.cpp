@@ -53,6 +53,13 @@ int getSegment(int address, int ps, int sl)
     return address >> (ps+sl);
 }
 
+/* fault handler */
+void faultHandler()
+{
+    cout<<"I am the fault handler"<<endl;
+    exit(0);
+}
+
 
 int main(int argc, const char * argv[])
 {
@@ -63,6 +70,8 @@ int main(int argc, const char * argv[])
     int min; //
     int max; //
     int k;   // total number of processes
+    int vmmSize; // size of virtual memory
+    
     vector<pair<int, int>> processID;
     vector<pair<int, int>> processAddr;
     
@@ -140,6 +149,12 @@ int main(int argc, const char * argv[])
         cout<<min<<endl;
         cout<<max<<endl;
         cout<<k<<endl;
+        
+        vmmSize = k*tp;
+        cout<<"vmmSize="<<vmmSize<<endl;
+        
+        
+        
         for (vector<pair<int, int>>::iterator iter = processID.begin(); iter!=processID.end(); iter++)
         {
             cout << iter->first <<" "<< iter->second << endl;
@@ -159,6 +174,48 @@ int main(int argc, const char * argv[])
     else cout << "Unable to open file\n";
     myfile.close();
     /* END READ FILE */
+    
+    //create main memeory size tp
+    int mainMemory[tp];
+    
+    for(int i = 0; i<tp; i++)
+    {
+        mainMemory[i] = -1;
+        cout<<"mainMemory["<<i<<"]="<<mainMemory[i]<<endl;
+    }
+    
+    //create address space pointers
+    int addressSpace[k];
+    int count = 0;
+    
+    for (vector<pair<int, int>>::iterator iter = processID.begin(); iter!=processID.end(); iter++)
+    {
+        addressSpace[count] = iter->first;
+        cout<<addressSpace[count]<<endl;
+        count++;
+    }
+    
+    //get address space from hardware.
+    for (vector<pair<int, int>>::iterator iter = processAddr.begin(); iter!=processAddr.end(); iter++)
+    {
+        for(int i = 0; i<k; i++)
+        {
+            if(iter->first == addressSpace[i])
+            {
+                cout<<i<<endl;
+            }
+        }
+    }
+    
+    for(int i= 0; i<tp; i++)
+    {
+        if(mainMemory[i]<0)
+        {
+            cout<<i<<endl;
+            faultHandler();
+        }
+    }
+    
     
     
     
