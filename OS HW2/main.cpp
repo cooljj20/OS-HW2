@@ -23,6 +23,13 @@
 
 using namespace std;
 
+#define FIFO 0
+#define LIFO 1
+#define LRU 2
+#define MFU 3
+#define RANDOM 4
+#define WS 5
+
 
 /* Gets the max number that can be made from bit size ps */
 int getMaxBitSize(int ps)
@@ -41,8 +48,6 @@ int getAddressIndex(vector<pair<int, int>>::iterator iter, int addressSpace[], i
     {
         if(iter->first == addressSpace[i])
         {
-            //cout<<"Address space is "<<i<<endl;
-            //cout<<"searching starts at frame "<<i*r<<endl;
             return i;
         }
     }
@@ -65,11 +70,94 @@ int getSegment(int address, int ps, int sl)
     return address >> (ps+sl);
 }
 
-/* fault handler */
-void faultHandler()
+int randomNum(int r, int index)
 {
-    cout<<"I am the fault handler"<<endl;
-    exit(0);
+    int num =(rand() % r) + (index*r);
+    return num;
+}
+
+/* fault handler */
+int faultHandler(vector<pair<int, int>>::iterator iter,int k, int r, int ps, int tp, int index, int vmm[], int mainMemory[], int replacementAlgorithm)
+{
+    for(int i = 0; i<index*r+r; i++)
+    {
+        int curFrame = r*index + i;
+        
+        if(mainMemory[curFrame]==-1)
+        {
+            return curFrame;
+        }
+    }
+    
+    switch (replacementAlgorithm)
+    {
+        case FIFO:
+            return -1;
+            break;
+            
+        case LIFO:
+            return -1;
+            break;
+            
+        case LRU:
+            return -1;
+            break;
+            
+        case MFU:
+            return -1;
+            break;
+            
+        case RANDOM:
+            return randomNum(r, index);
+            break;
+            
+        case WS:
+            return -1;
+            // make a list of length (input dependent). Every access, if found, move to the back of list, remove the front. Else add new one to back, remove front.
+            break;
+    }
+}
+
+void processRequest(vector<pair<int, int>> processAddr, int addressSpace[],int k, int r, int, int ps, int tp, int vmm[], int mainMemory[], int numberOfPageFaults[], int replacementAlgorithm)
+{
+    //process request
+    for (vector<pair<int, int>>::iterator iter = processAddr.begin(); iter!=processAddr.end(); iter++)
+    {
+        bool addressInMainMemory = false;
+        //check for end of process.
+        if(iter->second==-1)
+        {
+            //cout<<"End of Process "<<iter->first<<endl;
+            continue;
+        }
+        else
+        {
+            int index = getAddressIndex(iter, addressSpace, k, r);
+            
+            if(vmm[index*tp+(iter->second >>ps)] == -1)
+            {
+                addressInMainMemory = false;
+            }
+            else
+            {
+                addressInMainMemory = true;
+            }
+            
+            if(!addressInMainMemory)
+            {
+                cout<<index<<endl;
+                numberOfPageFaults[index]+=1;
+                
+                int newFrame = faultHandler(iter, k, r, ps, tp, index, vmm, mainMemory, replacementAlgorithm);
+                if(mainMemory[newFrame]!=-1)
+                {
+                    vmm[mainMemory[newFrame]] = -1;
+                }
+                vmm[index*tp+ (iter->second >> ps)] = newFrame;
+                mainMemory[newFrame] = index*tp+ (iter->second >> ps);
+            }
+        }
+    }
 }
 
 
@@ -82,10 +170,10 @@ int main(int argc, const char * argv[])
     int min; //
     int max; //
     int k;   // total number of processes
-
+    vector<pair<int, int>> processID; //ProcessID and Space in disk
+    vector<pair<int, int>> processAddr; //ProcessID and Address
     
-    vector<pair<int, int>> processID;
-    vector<pair<int, int>> processAddr;
+    srand (time(NULL));
     
     /* READ FILE */
     ifstream myfile ("input.txt");
@@ -153,15 +241,9 @@ int main(int argc, const char * argv[])
             processAddr.push_back(std::make_pair(process, address));
         }
         
-        cout<<tp<<endl;
         int logsl = ceil(log2(sl));
-        cout<<sl<<endl;
         ps = ceil(log2(ps));
-        cout<<ps<<endl;
-        cout<<r<<endl;
-        cout<<min<<endl;
-        cout<<max<<endl;
-        cout<<k<<endl;
+
         
         //create DTP a=ProcessID, p=Page number
         int DTP[k][sl];
@@ -171,27 +253,13 @@ int main(int argc, const char * argv[])
             for(int j = 0; j<sl; j++)
             {
                 DTP[i][j]=counter;
-                cout<<"DTP["<<i<<"]["<<j<<"]="<<counter<<endl;
                 counter++;
             }
         }
         
-        
-        for (vector<pair<int, int>>::iterator iter = processID.begin(); iter!=processID.end(); iter++)
-        {
-            cout << iter->first <<" "<< iter->second << endl;
-        }
-        
         int maxNumberofOffset = getMaxBitSize(ps);
         int maxNumberOfPages = getMaxBitSize(logsl);
-        for (vector<pair<int, int>>::iterator iter = processAddr.begin(); iter!=processAddr.end(); iter++)
-        {
-            cout<<"-----"<<iter->first<<"-----"<<endl;
-            cout<<"Offset="<<getOffset(iter->second, maxNumberofOffset)<<endl;
-            cout<<"Page="<<getPage(iter->second, ps, maxNumberOfPages)<<endl;
-            cout<<"Segment="<<getSegment(iter->second, ps, logsl)<<endl;
-            
-        }
+
     }
     else cout << "Unable to open file\n";
     myfile.close();
@@ -200,13 +268,9 @@ int main(int argc, const char * argv[])
     //create main memeory size tp
     int mainMemory[tp];
     
-    // create virtual memory which is size of main memory * k number of processes
+    // create virtual memory which is size of main memory * k number of processes | Fill it with -1 to start
     int vmm[k*tp];
-    
-    for(int i = 0; i<tp; i++)
-    {
-        mainMemory[i] = -1;
-    }
+
     
     //create address space pointers for each process
     int addressSpace[k];
@@ -215,42 +279,45 @@ int main(int argc, const char * argv[])
     for (vector<pair<int, int>>::iterator iter = processID.begin(); iter!=processID.end(); iter++)
     {
         addressSpace[count] = iter->first;
-        cout<<addressSpace[count]<<endl;
         count++;
     }
     
-    //process request
-    for (vector<pair<int, int>>::iterator iter = processAddr.begin(); iter!=processAddr.end(); iter++)
+    //create page fault counter
+    int numberOfPageFaults[k];
+    
+    
+    cout<<"------------Begin Process Request------------"<<endl;
+    for(int i = 0; i <6; i++)
     {
-        if(iter->second==-1)
+        //clear mainMemory and vmm
+        for(int i = 0; i<k*tp; i++)
         {
-            cout<<iter->first<<" "<<iter->second<<endl;
-            continue;
+            vmm[i] = -1;
+        }
+        for(int i = 0; i<tp; i++)
+        {
+            mainMemory[i] = -1;
         }
         
-        int index = getAddressIndex(iter, addressSpace, k, r);
-        
-        vmm[index*tp+ (iter->second >> ps)] = index*tp+ (iter->second >> ps);
-        cout<<"virtual main memory="<<vmm[(index* tp) + (iter->second >> ps)]<<endl;
-        
-        //sift through main memory
-        for(int i = index*r; i<index*r+r; i++)
+        //reinitialize fault counter
+        for(int i = 0; i<k; i++)
         {
-            cout<<"mainMemory["<<i<<"]"<<"="<<vmm[index*tp+ (iter->second >> ps)]<<endl;
-            if (mainMemory[i]==vmm[getAddressIndex(iter, addressSpace, k, r)])
-            {
-                cout<<mainMemory[i]<<"="<<vmm[getAddressIndex(iter, addressSpace, k, r)];
-            }
-            else
-            {
-                //faultHandler();
-            }
+            numberOfPageFaults[i]=0;
         }
         
+        cout<<"------algorithm "<<i<<" ------"<<endl;
+        processRequest(processAddr, addressSpace, k, r, k, ps, tp, vmm, mainMemory, numberOfPageFaults, i);
+        cout<<endl<<endl;
+        
+        //get total number of page faults
+        int totalNumberOfPageFaults = 0;
+        for(int i = 0; i<k; i++)
+        {
+            cout<<i<<" "<<numberOfPageFaults[i]<<endl;
+            totalNumberOfPageFaults+= numberOfPageFaults[i];
+        }
+        cout<<totalNumberOfPageFaults<<endl;
     }
-    
-    
-
     return 0;
 }
 
