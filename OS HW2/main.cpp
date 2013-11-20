@@ -19,6 +19,7 @@
 #include <math.h>
 #include <sys/types.h>
 #include <sys/ipc.h>
+#include <sys/shm.h>
 #include <sys/sem.h>
 
 using namespace std;
@@ -70,16 +71,49 @@ int getSegment(int address, int ps, int sl)
     return address >> (ps+sl);
 }
 
-int randomNum(int r, int index)
+/* Replacement Algorithms */
+int fifoFrame(int r, int index, int mainMemory[])
+{
+    return ((index * r)+r)-1;
+}
+int lifoFrame(int r, int index, int mainMemory[])
+{
+    return ((index * r)+r)-1;
+}
+int lruFrame(int r, int index, int mainMemory[])
+{
+    return ((index * r)+r)-1;
+}
+
+int mfuFrame(int r, int index, int mainMemory[], int mfuCounter[])
+{
+    int mostFrequent = 0;
+
+    for(int i = 0; i<r; i++)
+    {
+        int curFrame = r*index + i;
+        if(mfuCounter[curFrame] > mfuCounter[mostFrequent])
+        {
+            mostFrequent = curFrame;
+        }
+        
+    }
+    return mostFrequent;
+}
+int randomFrame(int r, int index)
 {
     int num =(rand() % r) + (index*r);
     return num;
 }
+int wsFrame(int r, int index, int mainMemory[])
+{
+    return ((index * r)+r)-1;;
+}
 
 /* fault handler */
-int faultHandler(vector<pair<int, int>>::iterator iter,int k, int r, int ps, int tp, int index, int vmm[], int mainMemory[], int replacementAlgorithm)
+int faultHandler(vector<pair<int, int>>::iterator iter,int k, int r, int ps, int tp, int index, int vmm[], int mainMemory[], int replacementAlgorithm, int mfuCounter[])
 {
-    for(int i = 0; i<index*r+r; i++)
+    for(int i = 0; i<r; i++)
     {
         int curFrame = r*index + i;
         
@@ -88,41 +122,57 @@ int faultHandler(vector<pair<int, int>>::iterator iter,int k, int r, int ps, int
             return curFrame;
         }
     }
-    
+  
     switch (replacementAlgorithm)
     {
         case FIFO:
-            return -1;
+            return fifoFrame(r,index,mainMemory);
             break;
             
         case LIFO:
-            return -1;
+            return lifoFrame(r,index,mainMemory);
             break;
             
         case LRU:
-            return -1;
+            return lruFrame(r,index,mainMemory);
             break;
             
         case MFU:
-            return -1;
+            return mfuFrame(r,index,mainMemory, mfuCounter);
             break;
             
         case RANDOM:
-            return randomNum(r, index);
+            return randomFrame(r, index);
             break;
             
         case WS:
-            return -1;
-            // make a list of length (input dependent). Every access, if found, move to the back of list, remove the front. Else add new one to back, remove front.
+            return wsFrame(r,index,mainMemory);
+            break;
+        
+        default:
             break;
     }
 }
 
-void processRequest(vector<pair<int, int>> processAddr, int addressSpace[],int k, int r, int, int ps, int tp, int vmm[], int mainMemory[], int numberOfPageFaults[], int replacementAlgorithm)
+void diskDriver(vector<pair<int, int>> processAddr, int addressSpace[],int k, int r, int ps, int tp, int max, int vmm[], int mainMemory[], int numberOfPageFaults[], int replacementAlgorithm)
 {
     //process request
     for (vector<pair<int, int>>::iterator iter = processAddr.begin(); iter!=processAddr.end(); iter++)
     {
+        //create counter for MFU
+        int mfuCounter[r*k];
+        for(int i=0; i<r*k; i ++)
+        {
+            mfuCounter[i]=0;
+        }
+        
+        //create Working Set
+        int workingSet[max];
+        for(int i=0; i<max; i ++)
+        {
+            workingSet[i]=0;
+        }
+        
         bool addressInMainMemory = false;
         //check for end of process.
         if(iter->second==-1)
@@ -145,16 +195,68 @@ void processRequest(vector<pair<int, int>> processAddr, int addressSpace[],int k
             
             if(!addressInMainMemory)
             {
-                cout<<index<<endl;
                 numberOfPageFaults[index]+=1;
                 
-                int newFrame = faultHandler(iter, k, r, ps, tp, index, vmm, mainMemory, replacementAlgorithm);
+                int newFrame = faultHandler(iter, k, r, ps, tp, index, vmm, mainMemory, replacementAlgorithm, mfuCounter);
+                
                 if(mainMemory[newFrame]!=-1)
                 {
                     vmm[mainMemory[newFrame]] = -1;
                 }
-                vmm[index*tp+ (iter->second >> ps)] = newFrame;
-                mainMemory[newFrame] = index*tp+ (iter->second >> ps);
+                if(replacementAlgorithm == FIFO)
+                {
+                    for(int i = index*r; i<index*r+r-2; i++)
+                    {
+                        vmm[mainMemory[i]]= vmm[mainMemory[i+1]];
+                        mainMemory[i]=mainMemory[i+1];
+                    }
+                    
+                    vmm[index*tp+ (iter->second >> ps)] = newFrame;
+                    mainMemory[newFrame] = index*tp+ (iter->second >> ps);
+                }
+                else if (replacementAlgorithm == LRU)
+                {
+            
+                    for(int i = index*r; i<index*r+r-2; i++)
+                    {
+                        vmm[mainMemory[i]]= vmm[mainMemory[i+1]];
+                        mainMemory[i]=mainMemory[i+1];
+                    }
+                    
+                    vmm[index*tp+ (iter->second >> ps)] = newFrame;
+                    mainMemory[newFrame] = index*tp+ (iter->second >> ps);
+                }
+                else if (replacementAlgorithm == MFU)
+                {
+                   
+                    vmm[index*tp+ (iter->second >> ps)] = newFrame;
+                    mainMemory[newFrame] = index*tp+ (iter->second >> ps);
+                }
+                else
+                {
+                    vmm[index*tp+ (iter->second >> ps)] = newFrame;
+                    mainMemory[newFrame] = index*tp+ (iter->second >> ps);
+                }
+            }
+            else
+            {
+                if(replacementAlgorithm == LRU)
+                {
+                    int foundInMainMemory = vmm[index*tp+(iter->second >>ps)];
+                    int newFrame = ((index * r)+r)-1;
+                    for(int i = vmm[index*tp+(iter->second >>ps)]; i<index*r+r-2; i++)
+                    {
+                        vmm[mainMemory[i]]= vmm[mainMemory[i+1]];
+                        mainMemory[i]=mainMemory[i+1];
+                    }
+                
+                    vmm[foundInMainMemory] = newFrame;
+                    mainMemory[newFrame] = index*tp+ (iter->second >> ps);
+                }
+                if(replacementAlgorithm == MFU)
+                {
+                    mfuCounter[vmm[index*tp+(iter->second >>ps)]]++;
+                }
             }
         }
     }
@@ -265,6 +367,13 @@ int main(int argc, const char * argv[])
     myfile.close();
     /* END READ FILE */
     
+    //Semaphores
+    int processRun;
+    long key;
+    int nbytes;
+    processRun = semget(key, nbytes, 0666 | IPC_CREAT);
+    
+
     //create main memeory size tp
     int mainMemory[tp];
     
@@ -285,38 +394,70 @@ int main(int argc, const char * argv[])
     //create page fault counter
     int numberOfPageFaults[k];
     
-    
-    cout<<"------------Begin Process Request------------"<<endl;
     for(int i = 0; i <6; i++)
     {
         //clear mainMemory and vmm
-        for(int i = 0; i<k*tp; i++)
+        for(int j = 0; j<k*tp; j++)
         {
-            vmm[i] = -1;
+            vmm[j] = -1;
         }
-        for(int i = 0; i<tp; i++)
+        for(int j = 0; j<tp; j++)
         {
-            mainMemory[i] = -1;
+            mainMemory[j] = -1;
         }
         
         //reinitialize fault counter
-        for(int i = 0; i<k; i++)
+        for(int j = 0; j<k; j++)
         {
-            numberOfPageFaults[i]=0;
+            numberOfPageFaults[j]=0;
         }
-        
-        cout<<"------algorithm "<<i<<" ------"<<endl;
-        processRequest(processAddr, addressSpace, k, r, k, ps, tp, vmm, mainMemory, numberOfPageFaults, i);
-        cout<<endl<<endl;
+        //find algorithm
+        switch (i) {
+            case FIFO:
+                cout<<"------ "<<"FIFO"<<" page faults ------"<<endl;
+                break;
+                
+            case LIFO:
+                cout<<"------ "<<"LIFO"<<" page faults ------"<<endl;
+                break;
+                
+            case LRU:
+                cout<<"------ "<<"LRU"<<" page faults ------"<<endl;
+                break;
+                
+            case MFU:
+                cout<<"------ "<<"MFU"<<" page faults ------"<<endl;
+                break;
+                
+            case RANDOM:
+                cout<<"------ "<<"RANDOM"<<" page faults ------"<<endl;
+                break;
+                
+            case WS:
+                cout<<"------ "<<"WORKING SET"<<" page faults ------"<<endl;
+                break;
+                
+            default:
+                break;
+        }
+        diskDriver(processAddr, addressSpace, k, r, ps, tp, max, vmm, mainMemory, numberOfPageFaults, i);
+        cout<<endl;
         
         //get total number of page faults
         int totalNumberOfPageFaults = 0;
-        for(int i = 0; i<k; i++)
+        for(int j = 0; j<k; j++)
         {
-            cout<<i<<" "<<numberOfPageFaults[i]<<endl;
-            totalNumberOfPageFaults+= numberOfPageFaults[i];
+            cout<<"Process "<<addressSpace[j]<<": "<<numberOfPageFaults[j]<<endl;
+            
+            totalNumberOfPageFaults+= numberOfPageFaults[j];
         }
         cout<<totalNumberOfPageFaults<<endl;
+        
+        if(i == WS)
+        {
+            cout<<"Min = "<<min<<endl;
+            cout<<"Max = "<<max<<endl;
+        }
     }
     return 0;
 }
